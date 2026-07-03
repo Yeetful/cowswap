@@ -9,6 +9,7 @@ import { i18n } from '@lingui/core'
 import { I18nProvider } from '@lingui/react'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
+import ms from 'ms.macro'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router'
 import { ThemeProvider as StyledComponentsThemeProvider } from 'styled-components/macro'
@@ -39,7 +40,7 @@ function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 5 * 60 * 1000,
+        staleTime: ms`5m`,
       },
     },
   })

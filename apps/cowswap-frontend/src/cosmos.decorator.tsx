@@ -11,6 +11,7 @@ import { WalletUpdater, Web3Provider } from '@cowprotocol/wallet'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BlockNumberUpdater } from 'entities/blockchain'
 import { LanguageProvider } from 'i18n'
+import ms from 'ms.macro'
 import SVG from 'react-inlinesvg'
 import { Provider } from 'react-redux'
 import { HashRouter } from 'react-router'
@@ -97,7 +98,7 @@ const cowAnalytics = initGtm()
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
+      staleTime: ms`5m`,
     },
   },
 })
