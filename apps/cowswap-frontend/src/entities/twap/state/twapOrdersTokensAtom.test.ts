@@ -4,6 +4,7 @@ import { getAddressKey, SupportedChainId } from '@cowprotocol/cow-sdk'
 import type { TokensByAddress } from '@cowprotocol/tokens'
 
 import { waitFor } from '@testing-library/react'
+import { observe } from 'jotai-effect'
 
 // eslint-disable-next-line import/no-internal-modules -- fixtures need TwapOrderItem; avoid entities/twap barrel
 import { TwapOrderStatus, type TwapOrderItem } from 'modules/twap/types'
@@ -13,6 +14,7 @@ jest.mock('modules/orders', () => ({
 }))
 
 import {
+  observeTwapOrdersTokensCache,
   twapOrdersTokensAddressesAtom,
   twapOrdersTokensAsyncAtom,
   twapOrdersTokensAtom,
@@ -191,6 +193,48 @@ describe('twapOrdersTokensAtom', () => {
       expect(store.get(twapOrdersTokensLoadableAtom)).toEqual({ state: 'hasData', data: full })
     })
     expect(store.get(twapOrdersTokensAtom)).toEqual(full)
+  })
+
+  it('returns cached tokens while async refetch is loading', async () => {
+    const unobserveCache = observe(observeTwapOrdersTokensCache, store)
+
+    try {
+      store.set(getListAtom(), [makeTwapOrderItem(SELL, BUY)])
+
+      const initialResult: TokensByAddress = {
+        [getAddressKey(SELL)]: {} as TokensByAddress[string],
+        [getAddressKey(BUY)]: {} as TokensByAddress[string],
+      }
+      mockFetchTokens.mockResolvedValueOnce(initialResult)
+
+      await waitFor(() => {
+        expect(store.get(twapOrdersTokensLoadableAtom).state).toBe('hasData')
+      })
+      expect(store.get(twapOrdersTokensAtom)).toEqual(initialResult)
+
+      let resolveRefetch!: (value: TokensByAddress | null) => void
+      const pendingRefetch = new Promise<TokensByAddress | null>((resolve) => {
+        resolveRefetch = resolve
+      })
+      mockFetchTokens.mockReturnValueOnce(pendingRefetch)
+
+      store.set(getListAtom(), [
+        makeTwapOrderItem(SELL, BUY),
+        makeTwapOrderItem('0x4444444444444444444444444444444444444444', BUY),
+      ])
+
+      await waitFor(() => {
+        expect(store.get(twapOrdersTokensLoadableAtom).state).toBe('loading')
+      })
+      expect(store.get(twapOrdersTokensAtom)).toEqual(initialResult)
+
+      resolveRefetch(initialResult)
+      await waitFor(() => {
+        expect(store.get(twapOrdersTokensLoadableAtom).state).toBe('hasData')
+      })
+    } finally {
+      unobserveCache()
+    }
   })
 
   it('with no twap orders, passes empty address list to fetchTokens', async () => {

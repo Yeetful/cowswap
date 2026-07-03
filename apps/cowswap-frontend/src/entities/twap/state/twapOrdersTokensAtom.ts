@@ -1,8 +1,11 @@
-import { atom } from 'jotai'
+import { atom, type Getter, type Setter } from 'jotai'
 import { loadable } from 'jotai/utils'
 
+import { jotaiStore } from '@cowprotocol/core'
 import { tokensByAddressAtom } from '@cowprotocol/tokens'
 import type { TokensByAddress } from '@cowprotocol/tokens'
+
+import { observe } from 'jotai-effect'
 
 import { getTokensListFromOrders } from 'modules/orders'
 
@@ -26,7 +29,26 @@ export const twapOrdersTokensAsyncAtom = atom(async (get): Promise<TokensByAddre
 
 export const twapOrdersTokensLoadableAtom = loadable(twapOrdersTokensAsyncAtom)
 
+const twapOrdersTokensCacheAtom = atom<TokensByAddress | null>(null)
+
+export function observeTwapOrdersTokensCache(get: Getter, set: Setter): void {
+  const loadableState = get(twapOrdersTokensLoadableAtom)
+
+  if (loadableState.state === 'hasData') {
+    set(twapOrdersTokensCacheAtom, loadableState.data)
+  }
+}
+
+// Cache last resolution of `twapOrdersTokensAsyncAtom` / `twapOrdersTokensLoadableAtom` / `twapOrdersTokensCacheAtom`
+observe(observeTwapOrdersTokensCache, jotaiStore)
+
+// Return the last current or cached value of `twapOrdersTokensAsyncAtom` / `twapOrdersTokensLoadableAtom` / `twapOrdersTokensCacheAtom`
 export const twapOrdersTokensAtom = atom((get): TokensByAddress | null => {
   const loadableState = get(twapOrdersTokensLoadableAtom)
-  return loadableState.state === 'hasData' ? loadableState.data : null
+
+  if (loadableState.state === 'hasData') {
+    return loadableState.data
+  }
+
+  return get(twapOrdersTokensCacheAtom)
 })
