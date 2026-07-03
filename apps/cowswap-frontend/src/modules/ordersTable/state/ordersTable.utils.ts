@@ -10,7 +10,7 @@ const ENABLE_ORDERS_TABLE_DEBUG = false
  * Debug logging for orders table.
  */
 export function logOrdersTableDebug(message: string, ...optionalParams: unknown[]): void {
-  if (import.meta.env.DEV && ENABLE_ORDERS_TABLE_DEBUG) {
+  if (process.env.NODE_ENV === 'development' && ENABLE_ORDERS_TABLE_DEBUG) {
     console.debug(`[OrdersTable] ${message}`, ...optionalParams)
   }
 }
