@@ -69,6 +69,41 @@ const customRpcUrls = EVM_SUPPORTED_CHAIN_IDS.reduce<Record<string, Array<{ url:
   return acc
 }, {})
 
+// Configurator standalone tab and configurator-inside-Safe tab live on the same origin, so
+// AppKit's `@appkit/*` localStorage keys plus wagmi's own connector state are shared. On first
+// render inside Safe, `wagmi safe()` synchronously auto-connects to the Safe SDK, but then
+// Reown's rehydration (EIP-6963 discovery + reconnect from cached wallet_id) picks up the
+// browser wallet that was connected in the standalone tab (e.g. Rabby) and swaps the active
+// connector, dropping the Safe address. Detecting "we're loaded as a Safe App" lets us skip
+// that rehydration path entirely in the Safe context — the wagmi `safe()` connector then wins
+// uncontested and Safe stays connected.
+// Mirror libs/wallet/utils/getIsSafeAppIframe.ts — main + internal preview + local
+const SAFE_APP_ORIGINS = [
+  'https://app.safe.global',
+  'https://safe-wallet-monorepo-cowswap-web.vercel.app',
+  'http://localhost:4003',
+] as const
+
+function getParentOrigin(): string | undefined {
+  if (typeof window === 'undefined' || window.parent === window) return undefined
+  try {
+    const ancestors = window.location.ancestorOrigins
+    if (ancestors?.length) return ancestors[0]
+    if (document.referrer) return new URL(document.referrer).origin
+    return window.parent.location.origin
+  } catch {
+    return undefined
+  }
+}
+
+function isSafeAppIframe(): boolean {
+  const parentOrigin = getParentOrigin()
+  if (!parentOrigin || parentOrigin === 'null') return false
+  return (SAFE_APP_ORIGINS as readonly string[]).includes(parentOrigin)
+}
+
+const IS_SAFE_APP_IFRAME = isSafeAppIframe()
+
 // The Reown wallet-registry returns TWO Coinbase Wallet entries:
 //   - 'fd20...' "Base (formerly Coinbase Wallet)" — the canonical entry; AppKit's
 //     PresetsUtil maps the `coinbaseWalletSDK` connector → this explorerId, so
@@ -119,7 +154,8 @@ export const reownAppKit = createAppKit({
   allowUnsupportedChain: true,
   customRpcUrls,
   defaultNetwork: networks.find((n) => n.id === SupportedChainId.MAINNET),
-  enableEIP6963: true,
+  enableEIP6963: !IS_SAFE_APP_IFRAME,
+  enableReconnect: !IS_SAFE_APP_IFRAME,
   enableWalletGuide: false,
   featuredWalletIds: ['fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa'],
   metadata,
