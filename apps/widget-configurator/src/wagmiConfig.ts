@@ -6,6 +6,7 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import { ConnectorController } from '@reown/appkit-controllers'
 import { coinbaseWallet, safe } from '@wagmi/connectors'
 import { http } from 'viem'
+import { createStorage } from 'wagmi'
 
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import type { Transport } from 'wagmi'
@@ -118,11 +119,26 @@ const IS_SAFE_APP_IFRAME = isSafeAppIframe()
 // Wallet" tile in the modal via AppKit's connector-list rendering).
 const COINBASE_LEGACY_WALLET_ID = 'd0ca99ff52b99abc48743dad0f7fc891e041be73574f7fac4afe5d4bb83845c8'
 
+// Isolate wagmi's persisted zustand store (`wagmi.store` = connections Map + active `current`)
+// per context. Without this, Tab 1 (standalone) writes Rabby's connection to `wagmi.store` and
+// Tab 2 (Safe) rehydrates from the same key on mount, swapping the active connector from `safe`
+// to `io.rabby`. Reown's `enableReconnect` gates only its own `syncAdapterConnections` — wagmi's
+// zustand persist middleware runs independently and is not gated by AppKit flags.
+const wagmiStorage = createStorage({
+  key: IS_SAFE_APP_IFRAME ? 'wagmi_safe-app' : 'wagmi',
+  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+})
+
 export const wagmiAdapter = new WagmiAdapter({
   connectors: [safe({ unstable_getInfoTimeout: 1000 }), coinbaseWallet({ preference: { options: 'all' } })],
   customRpcUrls,
+  // Disable wagmi's own EIP-6963 discovery in Safe: otherwise wagmi's `mipd` finds the browser
+  // wallet extension (e.g. Rabby) and adds it as a connector, whose provider then emits `connect`
+  // via `eth_accounts` — swapping the active connector from `safe` after Safe SDK connected.
+  multiInjectedProviderDiscovery: !IS_SAFE_APP_IFRAME,
   networks,
   projectId,
+  storage: wagmiStorage,
   transports,
 })
 
