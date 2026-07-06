@@ -1,6 +1,0 @@
-# Orders table module
-/apps/cowswap-frontend/src/modules/ordersTable/ @danziger
-
-# Agent harness and docs
-/AGENTS.md @fairlighteth
-/apps/*/AGENTS.md @fairlighteth
