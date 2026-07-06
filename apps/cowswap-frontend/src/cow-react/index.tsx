@@ -30,6 +30,7 @@ import {
   Updaters,
   WithLDProvider,
 } from 'modules/application'
+import { YeetfulChatWidget } from 'modules/yeetfulChat'
 
 import { loadActiveLocaleMessages } from 'lib/localeMessages'
 
@@ -75,6 +76,7 @@ export function Main({ localeMessages }: MainProps): ReactNode {
                                 <WalletUnsupportedNetworkBanner />
                                 <Updaters />
                                 <Toasts />
+                                {!isInjectedWidget() && <YeetfulChatWidget />}
                                 <App />
                               </CowAnalyticsProvider>
                             </Web3Provider>
