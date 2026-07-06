@@ -2,7 +2,7 @@ import { useAtom, useAtomValue } from 'jotai'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 
 import { useTheme } from '@cowprotocol/common-hooks'
-import { getJwtTtl } from '@cowprotocol/common-utils'
+import { getJwtTtl, normalizeError } from '@cowprotocol/common-utils'
 
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { setBearerToken } from 'cowSdk'
@@ -17,6 +17,7 @@ import { logCaptcha } from '../logger'
 
 export function CaptchaWidget(): ReactNode {
   const [captchaJwt, setCaptchaJwt] = useAtom(captchaJwtAtom)
+  const [captchaError, setCaptchaError] = useState<Error | null>(null)
   const { isCaptchaEnabled } = useAtomValue(featureFlagsAtom)
   const captchaRef = useRef<TurnstileInstance | undefined>(undefined)
   const exchangeRequestIdRef = useRef(0)
@@ -65,7 +66,7 @@ export function CaptchaWidget(): ReactNode {
 
   useCaptchaDebugControls({ exchangeRequestIdRef, setCaptchaJwt, setSiteKey })
 
-  if (!isCaptchaEnabled || !siteKey || captchaJwt) return null
+  if (!isCaptchaEnabled || !siteKey || captchaJwt || captchaError) return null
 
   return (
     <Turnstile
@@ -101,19 +102,16 @@ export function CaptchaWidget(): ReactNode {
         try {
           const jwt = await exchangeTurnstileToken(token)
 
-          if (exchangeRequestIdRef.current !== requestId) {
-            logCaptcha.warn('Skipping stale captcha JWT exchange result')
-            return
-          }
+          if (exchangeRequestIdRef.current !== requestId) return
 
           logCaptcha.info('JWT received', { requestId })
           setCaptchaJwt(jwt)
-        } catch (error) {
-          if (exchangeRequestIdRef.current !== requestId) {
-            return
-          }
+        } catch (err: unknown) {
+          if (exchangeRequestIdRef.current !== requestId) return
 
-          logCaptcha.error('JWT exchange failed', { requestId, error })
+          const error = normalizeError(err)
+          setCaptchaError(error)
+          logCaptcha.error('JWT exchange failed', { requestId }, error)
           setCaptchaJwt(null)
         }
       }}
