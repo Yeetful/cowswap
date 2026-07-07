@@ -10,6 +10,11 @@ import styled from 'styled-components/macro'
 // natively in React so the fork carries no extra dependency.
 const EMBED_ORIGIN = process.env.REACT_APP_YEETFUL_EMBED_ORIGIN || 'https://www.yeetful.com'
 const EMBED_MCPS = process.env.REACT_APP_YEETFUL_EMBED_MCPS || 'cow-free,snapshot-free'
+// PUBLIC embed key (publishable by design, like a Stripe publishable key) —
+// attributes this embed to the owning Yeetful account: the site shows under
+// the dashboard's "Your embeds", turns feed its analytics, and house-model
+// answers bill the owner's plan instead of each visitor's free tier.
+const EMBED_KEY = process.env.REACT_APP_YEETFUL_EMBED_KEY || 'yfe_8aa8ef595a498c1fe15683b7'
 
 // Embed postMessage contract v1: every payload is { source: 'yeetful-embed', v: 1, type, ... }
 const MSG_SOURCE = 'yeetful-embed'
@@ -73,6 +78,10 @@ function buildEmbedUrl(account: string | undefined): string {
     host: window.location.origin,
   })
 
+  if (EMBED_KEY) params.set('key', EMBED_KEY)
+  // Exact page URL for the owner dashboard's embeds roster (referrer
+  // policies usually trim cross-origin referrers to the origin).
+  params.set('page', window.location.href)
   if (account) params.set('address', account)
 
   return `${EMBED_ORIGIN}/embed?${params.toString()}`
